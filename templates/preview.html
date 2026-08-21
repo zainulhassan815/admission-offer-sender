@@ -1,0 +1,182 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview — Admission Offer Sender</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+  .toolstrip { border-bottom: 1px solid var(--line); }
+  .toolstrip .page { display: flex; align-items: center; gap: 16px; padding-top: 13px; padding-bottom: 13px; }
+  .toolstrip .jump { display: flex; gap: 10px; align-items: center; }
+  .toolstrip .jump label { margin: 0; }
+  .toolstrip select { width: auto; min-width: 250px; padding: 8px 12px; }
+
+  .stack { padding-top: 30px; padding-bottom: 80px; }
+
+  .mail { border: 1px solid var(--line-strong); border-radius: var(--r); overflow: hidden; margin-bottom: 26px; scroll-margin-top: 150px; }
+  .mail > header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .mail .idx { font-family: var(--mono); font-size: 15px; color: var(--faint); }
+  .mail h2 { margin: 0; font-size: 20px; font-weight: 700; }
+  .mail .to { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+
+  .subject { padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 16px; display: flex; gap: 14px; }
+  .subject span { color: var(--faint); font-size: 15px; flex: none; }
+  .subject b { font-weight: 600; }
+
+  .mail iframe { width: 100%; border: 0; display: block; }
+  .mail pre.text { margin: 0; padding: 22px; max-height: 640px; overflow: auto; font: 15px/1.75 var(--mono); white-space: pre-wrap; }
+  .loading { padding: 44px 20px; text-align: center; color: var(--faint); font-size: 16px; }
+
+  .attach { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 15px 20px; border-top: 1px solid var(--line); }
+  .attach .file { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+
+  dialog {
+    width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh;
+    margin: 0; padding: 0; border: 0; background: var(--bg);
+  }
+  dialog[open] { display: flex; flex-direction: column; }
+  dialog::backdrop { background: rgba(3,3,1,.45); }
+  dialog > header { display: flex; align-items: center; gap: 14px; flex: none; padding: 16px 24px; border-bottom: 2px solid var(--ink); }
+  dialog > header h3 { margin: 0; font-size: 20px; font-weight: 700; }
+  dialog > header .file { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+  dialog iframe { flex: 1; width: 100%; min-height: 0; border: 0; display: block; }
+  dialog .pending { flex: 1; display: grid; place-items: center; color: var(--muted); font-size: 16px; }
+  dialog > footer { display: flex; align-items: center; gap: 14px; flex: none; padding: 15px 24px; border-top: 1px solid var(--line); }
+</style>
+
+<div class="topbar">
+  <div class="masthead"><div class="page">
+    <img src="/static/logo.jpg" alt="" class="crest">
+    <div>
+      <h1>Email Preview</h1>
+      <p>Exactly what each candidate will receive.</p>
+    </div>
+    <div class="spacer"></div>
+    <a href="/">← Back to selection</a>
+  </div></div>
+  <div class="toolstrip"><div class="page">
+    <span class="pill count" id="count">—</span>
+    <div class="jump"><label for="jump" style="margin:0">Jump to</label><select id="jump"></select></div>
+    <div class="spacer"></div>
+    <button type="button" class="small" id="toggleText">Show plain text</button>
+  </div></div>
+</div>
+
+<div class="page stack" id="stack"></div>
+
+<dialog id="pv">
+  <header>
+    <h3 id="pvName">Offer letter</h3>
+    <span class="file" id="pvFile"></span>
+    <span class="spacer"></span>
+    <button type="button" id="pvClose">Close</button>
+  </header>
+  <div class="pending" id="pvPending">Building the letter…</div>
+  <iframe id="pvFrame" class="hide" title="Offer letter"></iframe>
+  <footer>
+    <button type="button" class="primary" id="pvDownload">Download PDF</button>
+    <span class="note">This is the exact file attached to the email.</span>
+  </footer>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pdfs = new Map();      // row -> blob url, so reopening is instant
+let showText = false;
+
+(async function init() {
+  const { items } = await (await fetch('/preview/list')).json();
+  if (!items.length) {
+    $('stack').innerHTML = '<div class="callout warn">Nothing to preview — go back and select some candidates.</div>';
+    return;
+  }
+  $('count').textContent = `${items.length} email${items.length > 1 ? 's' : ''}`;
+  $('jump').innerHTML = items.map((it, n) => `<option value="m${it.row}">${n + 1}. ${esc(it.name)}</option>`).join('');
+  $('jump').onchange = e => $(e.target.value).scrollIntoView({ behavior: 'smooth' });
+
+  $('stack').innerHTML = items.map((it, n) => `
+    <article class="mail" id="m${it.row}">
+      <header>
+        <span class="idx">${String(n + 1).padStart(2, '0')}</span>
+        <h2>${esc(it.name)}</h2>
+        <span class="to">${esc(it.email)}</span>
+        <span class="spacer"></span>
+        <span class="pill tag">${esc(it.program)}</span>
+      </header>
+      <div class="subject"><span>Subject</span><b class="subj">…</b></div>
+      <div class="loading">Loading…</div>
+      <iframe class="html hide" title="Email to ${esc(it.name)}"></iframe>
+      <pre class="text hide"></pre>
+      <div class="attach">
+        <button type="button" class="letter">Preview offer letter</button>
+        <span class="file"></span>
+      </div>
+    </article>`).join('');
+
+  // fill each card only as it comes into view — 100 previews would be heavy up front
+  const io = new IntersectionObserver((entries, obs) => {
+    for (const e of entries) if (e.isIntersecting) { obs.unobserve(e.target); fill(e.target); }
+  }, { rootMargin: '400px' });
+  items.forEach(it => io.observe($('m' + it.row)));
+})();
+
+async function fill(card) {
+  const i = +card.id.slice(1);
+  const r = await fetch('/preview/' + i);
+  const d = await r.json();
+  if (!r.ok) { card.querySelector('.loading').textContent = d.error; return; }
+  card.querySelector('.subj').textContent = d.subject;
+  card.querySelector('.file').textContent = d.filename;
+  card.querySelector('.text').textContent = d.text;
+  card.querySelector('.letter').onclick = () => openLetter(i, card.querySelector('h2').textContent, d.filename);
+
+  const frame = card.querySelector('.html');
+  frame.onload = () => {
+    card.querySelector('.loading')?.remove();
+    setView(card);                 // unhide first — a hidden iframe has no layout to measure
+  };
+  frame.srcdoc = d.html;
+}
+
+/* ---------- letter dialog ---------- */
+async function openLetter(i, name, filename) {
+  $('pvName').textContent = name;
+  $('pvFile').textContent = filename;
+  $('pvFrame').classList.add('hide');
+  $('pvPending').classList.remove('hide');
+  $('pvPending').textContent = 'Building the letter…';
+  $('pv').showModal();
+
+  if (!pdfs.has(i)) {
+    const r = await fetch(`/preview/${i}/pdf`);
+    if (!r.ok) { $('pvPending').textContent = (await r.json()).error; return; }
+    pdfs.set(i, URL.createObjectURL(await r.blob()));
+  }
+  if (!$('pv').open) return;                       // closed while it was building
+  $('pvFrame').src = pdfs.get(i);
+  $('pvFrame').classList.remove('hide');
+  $('pvPending').classList.add('hide');
+  $('pvDownload').onclick = () => {
+    const a = document.createElement('a');
+    a.href = pdfs.get(i); a.download = filename; a.click();
+  };
+}
+
+$('pvClose').onclick = () => $('pv').close();
+
+function setView(card) {
+  const frame = card.querySelector('.html');
+  frame.classList.toggle('hide', showText);
+  card.querySelector('.text').classList.toggle('hide', !showText);
+  if (!showText && frame.contentDocument) {
+    frame.style.height = frame.contentDocument.documentElement.scrollHeight + 'px';
+  }
+}
+
+$('toggleText').onclick = () => {
+  showText = !showText;
+  $('toggleText').textContent = showText ? 'Show formatted email' : 'Show plain text';
+  document.querySelectorAll('.mail').forEach(c => c.querySelector('.loading') || setView(c));
+};
+</script>

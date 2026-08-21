@@ -1,0 +1,15 @@
+# real candidate data — never commit
+admissions-list.xlsx
+test-candidates.csv
+preview/
+
+# build output
+build/
+dist/
+*.spec
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

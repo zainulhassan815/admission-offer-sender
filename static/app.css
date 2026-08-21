@@ -1,0 +1,103 @@
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --soft: #f7f8f9;
+  --ink: #030301;
+  --muted: #5f677a;
+  --faint: #8d95a5;
+  --line: #e3e5e9;
+  --line-strong: #c2c6cf;
+
+  --green: #2fbf71;
+  --green-ink: #197a48;
+  --blue: #3c91e6;
+  --blue-ink: #24629f;
+  --red: #b4302a;
+  --red-college: #a00601;
+  --amber: #93650d;
+
+  --r: 12px;
+  --r-sm: 8px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+a { color: var(--blue-ink); }
+
+/* ---- masthead ---- */
+.masthead { border-bottom: 3px solid var(--red-college); }
+.masthead .crest { height: 52px; width: auto; flex: none; }
+.masthead .page { display: flex; align-items: center; gap: 18px; padding-top: 28px; padding-bottom: 24px; }
+.masthead h1 { margin: 0; font-size: 27px; font-weight: 700; letter-spacing: -.01em; }
+.masthead p { margin: 6px 0 0; font-size: 16px; color: var(--muted); }
+.masthead a { font-size: 16px; text-decoration: none; border-bottom: 1px solid var(--line-strong); color: var(--muted); }
+.masthead a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ---- sections ---- */
+section { border-bottom: 1px solid var(--line); padding: 34px 0; }
+section:last-of-type { border-bottom: none; }
+section > h2 { display: flex; align-items: center; gap: 13px; margin: 0 0 22px; font-size: 21px; font-weight: 700; }
+section > h2 b {
+  display: grid; place-items: center; width: 30px; height: 30px; flex: none;
+  border: 2px solid var(--line-strong); border-radius: 50%; color: var(--muted);
+  font-size: 15px; font-weight: 700;
+}
+section.done > h2 b { background: var(--green); border-color: var(--green); color: var(--ink); }
+
+/* ---- form controls ---- */
+label { display: block; font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 7px; }
+label .hint, .hint { font-weight: 400; color: var(--muted); }
+input, textarea, select, button { font: inherit; color: var(--ink); }
+input[type=text], input[type=email], input[type=password], textarea, select {
+  width: 100%; padding: 11px 14px; background: var(--bg);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+}
+input[type=text]:hover, input[type=email]:hover, input[type=password]:hover, textarea:hover, select:hover { border-color: var(--muted); }
+input:focus, textarea:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(60,145,230,.25); outline: none; }
+button:focus-visible, input[type=checkbox]:focus-visible, .filebtn:focus-within { outline: 3px solid var(--blue); outline-offset: 2px; }
+input::placeholder { color: var(--faint); }
+textarea { min-height: 240px; resize: vertical; font-family: var(--mono); font-size: 15px; line-height: 1.75; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--ink); cursor: pointer; margin: 0; vertical-align: middle; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; }
+.wide { grid-column: 1 / -1; }
+.row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+
+button {
+  padding: 11px 22px; background: var(--bg); border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); cursor: pointer; font-weight: 600;
+}
+button:hover:not(:disabled) { border-color: var(--ink); }
+button.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+button.primary:hover:not(:disabled) { background: #2f2f2c; border-color: #2f2f2c; }
+button.small { padding: 8px 15px; font-size: 15px; }
+button.ghost { background: none; border-color: transparent; color: var(--blue-ink); text-decoration: underline; padding: 6px 10px; }
+button.ghost:hover:not(:disabled) { border-color: var(--line-strong); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---- callouts & pills: one neutral surface, colour only on the rule and the text ---- */
+.note { color: var(--muted); font-size: 16px; }
+.note b { color: var(--ink); font-weight: 600; }
+.callout { background: var(--soft); border-left: 4px solid var(--line-strong); border-radius: var(--r-sm); padding: 14px 18px; font-size: 16px; color: var(--muted); }
+.callout b { color: var(--ink); font-weight: 600; }
+.callout.info { border-left-color: var(--blue); }
+.callout.ok   { border-left-color: var(--green); }
+.callout.warn { border-left-color: var(--amber); }
+.callout.err  { border-left-color: var(--red); color: var(--red); }
+.callout.err b { color: var(--red); }
+
+.pill { display: inline-block; padding: 3px 11px; font-size: 14px; font-weight: 600; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); background: var(--bg); }
+.pill.ok { border-color: var(--green); color: var(--green-ink); }
+.pill.err { border-color: var(--red); color: var(--red); }
+.pill.wait { border-color: var(--line-strong); color: var(--faint); }
+.pill.count { background: var(--ink); border-color: var(--ink); color: #fff; font-variant-numeric: tabular-nums; }
+.pill.tag { font-weight: 500; }
+
+/* wins over any rule that sets display on the same element — several do */
+.hide { display: none !important; }

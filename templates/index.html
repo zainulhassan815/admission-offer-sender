@@ -1,0 +1,336 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admission Offer Sender</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .stack { padding-bottom: 90px; }
+
+  .drop { border: 2px dashed var(--line-strong); border-radius: var(--r); padding: 30px; text-align: center; transition: border-color .12s; }
+  .drop.over { border-color: var(--blue); border-style: solid; }
+  .drop input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .filebtn { display: inline-block; padding: 12px 24px; background: var(--ink); color: #fff; font-weight: 600; border-radius: var(--r-sm); cursor: pointer; }
+  .filebtn:hover { background: #2f2f2c; }
+
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .toolbar input[type=text] { width: 280px; }
+
+  .table-wrap { overflow: auto; max-height: 58vh; border: 1px solid var(--line-strong); border-radius: var(--r); }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 16px; }
+  th, td { padding: 12px 15px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th {
+    position: sticky; top: 0; z-index: 1; background: var(--bg);
+    font-size: 14px; font-weight: 700; color: var(--muted);
+    border-bottom: 2px solid var(--ink);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--soft); }
+  tbody tr.picked td { background: var(--soft); }
+  tbody tr.picked td:first-child { box-shadow: inset 4px 0 0 var(--ink); }
+  td.num { color: var(--faint); font-variant-numeric: tabular-nums; text-align: right; width: 1%; }
+  td.check { width: 1%; }
+  td.email { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+  tr.invalid td { color: var(--faint); }
+  tr.sent td:first-child { box-shadow: inset 4px 0 0 var(--green); }
+  tr.fail td:first-child { box-shadow: inset 4px 0 0 var(--red); }
+  td.status { white-space: normal; min-width: 140px; max-width: 340px; font-size: 15px; color: var(--muted); }
+  tr.fail td.status { color: var(--red); }
+  tr.hidden { display: none; }
+
+  .bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; margin-top: 20px; display: flex; }
+  .bar i { display: block; height: 100%; width: 0; transition: width .15s linear; }
+  .bar i.ok { background: var(--green); }
+  .bar i.err { background: var(--red); }
+</style>
+
+<div class="masthead"><div class="page">
+  <img src="/static/logo.jpg" alt="" class="crest">
+  <div>
+    <h1>Admission Offer Sender</h1>
+    <p>Upload the admissions list, pick candidates, and email each one a personalised offer letter.</p>
+  </div>
+  <div class="spacer"></div>
+  <button type="button" id="quit">Quit</button>
+</div></div>
+
+<div id="quitMsg" class="hide" style="padding:80px 28px;text-align:center">
+  <h1 style="font-size:22px;margin:0 0 10px">Closed</h1>
+  <p class="note">The program has stopped. You can close this tab.</p>
+</div>
+
+<div class="page stack">
+{% if not soffice %}
+<div class="callout err" style="margin-bottom:24px">
+  <b>LibreOffice is not installed.</b> It is needed to turn each letter into a PDF, so sending is
+  disabled until it is present. Install it free from
+  <a href="https://www.libreoffice.org/download/" target="_blank" rel="noopener">libreoffice.org/download</a>,
+  then quit and reopen this program.
+</div>
+{% endif %}
+<section id="step1">
+  <h2><b>1</b> Candidates</h2>
+  <div class="body">
+    <div class="drop" id="drop">
+      <label class="filebtn" for="file">Choose file<input type="file" id="file" accept=".csv,.xlsx,.xlsm"></label>
+      <div class="note" style="margin-top:11px">or drag it here — Excel (.xlsx) or CSV with an <b>email</b> column</div>
+    </div>
+    <div id="fileMsg" style="margin-top:15px"></div>
+
+    <div id="tableSection" class="hide" style="margin-top:18px">
+      <div class="toolbar">
+        <input type="text" id="filter" placeholder="Filter by name, email, program…" autocomplete="off">
+        <button type="button" class="small" id="selectAll">Select all</button>
+        <button type="button" class="small" id="clearAll">Clear</button>
+        <button type="button" class="small" id="previewAll" disabled>Preview selected</button>
+        <div class="spacer"></div>
+        <span class="pill count" id="count">0 selected</span>
+      </div>
+      <div class="table-wrap"><table id="table"></table></div>
+    </div>
+  </div>
+</section>
+
+<section id="step2" class="hide">
+  <h2><b>2</b> Template</h2>
+  <div class="body">
+    <div style="max-width:400px;margin-bottom:22px">
+      <label for="tpl">Template</label>
+      <select id="tpl"><option>Offer Letter — Provisional Admission</option></select>
+    </div>
+
+    <label style="margin-bottom:11px">Letter details <span class="hint">— applied to every selected candidate</span></label>
+    <div class="grid" style="margin-bottom:24px">
+      <div><label for="f_campus">Campus</label><input type="text" id="f_campus" value="SCET"></div>
+      <div><label for="f_category">Category</label><input type="text" id="f_category" value="A1"></div>
+      <div><label for="f_admission_type">Admission type</label><input type="text" id="f_admission_type" value="Open Merit"></div>
+      <div><label for="f_status">Admission status</label><input type="text" id="f_status" value="Provisionally Selected"></div>
+      <div><label for="f_date">Reporting date</label><input type="text" id="f_date" value="20/01/2026"></div>
+      <div><label for="f_time">Reporting time</label><input type="text" id="f_time" value="02:05 PM"></div>
+      <div class="wide"><label for="f_venue">Venue</label><input type="text" id="f_venue" value="ADMISSION OFFICE SCET"></div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <label for="subject">Email subject</label>
+      <input type="text" id="subject" value="Provisional Admission Offer — $program — Sharif College of Engineering &amp; Technology">
+    </div>
+    <label for="body">Email body <span class="hint">— placeholders: $name · $program · $father_name · $city · $date · $time · $venue · $campus</span></label>
+    <textarea id="body">Dear $name,
+
+Congratulations! You have been provisionally selected for admission to the $program program at Sharif College of Engineering and Technology (affiliated with UET Lahore).
+
+Your provisional admission offer letter is attached to this email. Please report to $venue on $date at $time to complete the admission formalities, and bring the documents listed in the attached letter.
+
+Your admission is provisional and subject to verification of documents.
+
+Regards,
+Admission Office
+Sharif College of Engineering and Technology</textarea>
+    <div class="callout info" style="margin-top:15px">
+      Your copy is wrapped in the college letterhead design, and every email carries a PDF offer letter
+      filled in with that candidate's own name, father's name, program and marks.
+      <b>Preview selected</b> shows the finished result.
+    </div>
+  </div>
+</section>
+
+<section id="step3" class="hide">
+  <h2><b>3</b> Send</h2>
+  <div class="body">
+    <div class="grid" style="margin-bottom:15px">
+      <div><label for="sender">Sender email</label><input type="email" id="sender" autocomplete="username" placeholder="admissions@example.com"></div>
+      <div><label for="password">App password</label><input type="password" id="password" autocomplete="current-password"></div>
+      <div><label for="host">SMTP host <span class="hint">— optional</span></label><input type="text" id="host" placeholder="auto · smtp.gmail.com"></div>
+      <div><label for="port">Port <span class="hint">— optional</span></label><input type="text" id="port" placeholder="auto · 465"></div>
+    </div>
+    <div class="callout warn" style="margin-bottom:20px">
+      Gmail requires an <b>App Password</b> — Google Account → Security → 2-Step Verification → App passwords.
+      Your normal password will not work. It is used for this batch only and never stored.
+    </div>
+    <div class="row">
+      <button type="button" class="primary" id="send" disabled>Send offer letters</button>
+      <button type="button" id="dry" disabled>Dry run</button>
+      <span class="note">Dry run builds every letter and email without sending anything.</span>
+    </div>
+    <div class="bar hide" id="barWrap"><i class="ok" id="barOk"></i><i class="err" id="barErr"></i></div>
+    <div id="result" style="margin-top:13px"></div>
+  </div>
+</section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let ROWS = [], HEADERS = [], INVALID = new Set();
+
+$('quit').onclick = async () => {
+  if (!confirm('Close the program?\n\nAnything not yet sent will be lost.')) return;
+  await fetch('/quit', { method: 'POST' }).catch(() => {});
+  document.querySelector('.stack').classList.add('hide');
+  document.querySelector('.masthead').classList.add('hide');
+  $('quitMsg').classList.remove('hide');
+};
+
+/* ---------- upload ---------- */
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); };
+$('file').onchange = e => e.target.files[0] && load(e.target.files[0]);
+
+async function load(f) {
+  $('fileMsg').innerHTML = '<div class="callout info">Reading ' + esc(f.name) + '…</div>';
+  const fd = new FormData(); fd.append('file', f);
+  const r = await fetch('/upload', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (!r.ok) { $('fileMsg').innerHTML = '<div class="callout err">' + esc(d.error) + '</div>'; return; }
+  ROWS = d.rows; HEADERS = d.headers; INVALID = new Set(d.invalid);
+  $('fileMsg').innerHTML = `<div class="callout ${INVALID.size ? 'warn' : 'ok'}"><b>${ROWS.length}</b> candidates loaded from ${esc(f.name)}`
+    + (INVALID.size ? ` · <b>${INVALID.size}</b> have no valid email address and cannot be selected.` : '') + '</div>';
+  $('step1').classList.add('done');
+  renderTable();
+  ['tableSection', 'step2', 'step3'].forEach(id => $(id).classList.remove('hide'));
+}
+
+/* ---------- table ---------- */
+function renderTable() {
+  let html = '<thead><tr><th class="check"><input type="checkbox" id="all" aria-label="Select all"></th>'
+    + '<th class="num">#</th>' + HEADERS.map(h => `<th>${esc(h)}</th>`).join('')
+    + '<th>Status</th><th></th></tr></thead><tbody>';
+  ROWS.forEach((row, i) => {
+    const bad = INVALID.has(i);
+    html += `<tr id="r${i}"${bad ? ' class="invalid"' : ''}>`
+      + `<td class="check"><input type="checkbox" class="pick" data-i="${i}"${bad ? ' disabled' : ''} aria-label="Select row ${i + 1}"></td>`
+      + `<td class="num">${i + 1}</td>`
+      + HEADERS.map(h => `<td${h === 'email' ? ' class="email"' : ''}>${esc(row[h] ?? '')}</td>`).join('')
+      + `<td class="status">${bad ? '<span class="pill err">Invalid email</span>' : ''}</td>`
+      + `<td><button type="button" class="small ghost">Preview</button></td></tr>`;
+  });
+  $('table').innerHTML = html + '</tbody>';
+
+  $('all').onchange = e => setAll(e.target.checked);
+  $('table').onclick = e => {
+    if (e.target.id === 'all') return;                  // its own change handler owns this
+    const tr = e.target.closest('tr');
+    if (e.target.closest('button')) return openPreview(+tr.id.slice(1));
+    if (e.target.matches('input')) return count();
+    const box = tr?.querySelector('.pick');
+    if (box && !box.disabled) { box.checked = !box.checked; count(); }
+  };
+  count();
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const statusCell = i => $('r' + i).children[HEADERS.length + 2];
+const visible = () => [...document.querySelectorAll('.pick:not(:disabled)')].filter(c => !c.closest('tr').classList.contains('hidden'));
+const picked = () => [...document.querySelectorAll('.pick:checked')].map(c => +c.dataset.i);
+
+function setAll(on) { visible().forEach(c => c.checked = on); count(); }
+$('selectAll').onclick = () => setAll(true);
+$('clearAll').onclick = () => setAll(false);
+
+function count() {
+  const n = picked().length, vis = visible(), on = vis.filter(c => c.checked).length;
+  $('all').checked = vis.length > 0 && on === vis.length;
+  $('all').indeterminate = on > 0 && on < vis.length;
+  document.querySelectorAll('.pick').forEach(c => c.closest('tr').classList.toggle('picked', c.checked));
+  $('send').disabled = $('dry').disabled = $('previewAll').disabled = !n;
+  $('count').textContent = `${n} selected` + (vis.length !== ROWS.length ? ` · ${vis.length} shown` : ` of ${ROWS.length}`);
+}
+
+$('filter').oninput = e => {
+  const q = e.target.value.trim().toLowerCase();
+  ROWS.forEach((row, i) => {
+    const hit = !q || HEADERS.some(h => String(row[h] ?? '').toLowerCase().includes(q));
+    $('r' + i).classList.toggle('hidden', !hit);
+  });
+  count();
+};
+
+/* ---------- preview ---------- */
+const fixedFields = () => Object.fromEntries(['campus', 'category', 'admission_type', 'status', 'date', 'time', 'venue']
+  .map(k => [k, $('f_' + k).value.trim()]));
+
+$('previewAll').onclick = () => openPreview();
+
+async function openPreview(anchor) {
+  const sel = picked();
+  const rows = anchor === undefined ? sel : (sel.includes(anchor) ? sel : [anchor]);
+  if (!rows.length) return;
+  const tab = window.open('', '_blank');            // opened first, or the browser blocks it
+  await fetch('/preview/session', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows, fixed: fixedFields(), subject: $('subject').value, body: $('body').value }),
+  });
+  tab.location = '/preview' + (anchor === undefined ? '' : '#m' + anchor);
+}
+
+/* ---------- send ---------- */
+$('send').onclick = () => run(false);
+$('dry').onclick = () => run(true);
+
+async function run(dry) {
+  const rows = picked();
+  if (!rows.length) return;
+  if (!dry && !confirm(`Send the offer letter to ${rows.length} candidate(s)?\n\nEach email goes out individually with a personalised attachment.`)) return;
+
+  $('send').disabled = $('dry').disabled = true;
+  $('result').innerHTML = '';
+  $('barWrap').classList.remove('hide');
+  $('barOk').style.width = $('barErr').style.width = '0%';
+  rows.forEach(i => {
+    $('r' + i).className = 'picked';
+    statusCell(i).innerHTML = '<span class="pill wait">Queued</span>';
+  });
+
+  const payload = {
+    rows, dry_run: dry,
+    sender: $('sender').value.trim(), password: $('password').value,
+    host: $('host').value.trim(), port: $('port').value.trim(),
+    subject: $('subject').value, body: $('body').value, fixed: fixedFields(),
+  };
+
+  const res = await fetch('/send', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  if (!res.ok && res.headers.get('content-type')?.includes('json')) {
+    const d = await res.json();
+    $('result').innerHTML = '<div class="callout err">' + esc(d.error) + '</div>';
+    return finish();
+  }
+
+  let done = 0, failed = 0, folder = '', buf = '';
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  for (;;) {
+    const { value, done: end } = await reader.read();
+    buf += end ? '' : dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const m = JSON.parse(line);
+      if (m.folder) { folder = m.folder; continue; }
+      if (m.fatal) {
+        $('result').innerHTML = '<div class="callout err"><b>Could not connect to the mail server.</b><br>' + esc(m.fatal) + '</div>';
+        return finish();
+      }
+      $('r' + m.row).className = m.ok ? 'sent' : 'fail';
+      statusCell(m.row).innerHTML = m.ok
+        ? `<span class="pill ok">${dry ? 'Built' : 'Sent'}</span>`
+        : `<span class="pill err">Failed</span> ${esc(m.error)}`;
+      done++; if (!m.ok) failed++;
+      $('barOk').style.width = ((done - failed) / rows.length * 100) + '%';
+      $('barErr').style.width = (failed / rows.length * 100) + '%';
+      $('result').innerHTML = `<div class="callout info"><b>${done}</b> of ${rows.length} processed`
+        + (failed ? ` · <b>${failed}</b> failed` : '') + '</div>';
+    }
+    if (end) break;
+  }
+  $('result').innerHTML = failed
+    ? `<div class="callout warn"><b>${done - failed}</b> ${dry ? 'built' : 'sent'}, <b>${failed}</b> failed — see the Status column for the reason.</div>`
+    : `<div class="callout ok">All <b>${done}</b> ${dry
+        ? `emails built successfully — nothing was sent. Each is saved as a .eml file you can open in Mail, attachment included:<br><b>${esc(folder)}</b>`
+        : 'offer letters sent successfully.'}</div>`;
+  if (!dry && !failed) $('step3').classList.add('done');
+  finish();
+}
+
+const finish = () => { $('barWrap').classList.add('hide'); count(); };
+</script>
