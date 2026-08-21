@@ -7,7 +7,9 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest        # free for public repositories
+    runs-on: windows-latest
+    permissions:
+      contents: write              # needed to create the release on a tag
     steps:
       - uses: actions/checkout@v4
 
