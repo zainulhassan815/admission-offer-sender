@@ -142,9 +142,15 @@ Sharif College of Engineering and Technology</textarea>
       <div><label for="host">SMTP host <span class="hint">— optional</span></label><input type="text" id="host" placeholder="auto · smtp.gmail.com"></div>
       <div><label for="port">Port <span class="hint">— optional</span></label><input type="text" id="port" placeholder="auto · 465"></div>
     </div>
-    <div class="callout warn" style="margin-bottom:20px">
+    <div class="callout warn" style="margin-bottom:14px">
       Gmail requires an <b>App Password</b> — Google Account → Security → 2-Step Verification → App passwords.
       Your normal password will not work. It is used for this batch only and never stored.
+    </div>
+    <div class="callout info" style="margin-bottom:20px">
+      Host and port are filled in automatically for <b>@gmail.com</b>, <b>@outlook.com</b>, <b>@hotmail.com</b>,
+      <b>@live.com</b> and <b>@yahoo.com</b>. For an address on your own domain, enter them yourself:<br>
+      <b>Google Workspace</b> — smtp.gmail.com, port 465 &nbsp;·&nbsp;
+      <b>Microsoft 365</b> — smtp.office365.com, port 587
     </div>
     <div class="row">
       <button type="button" class="primary" id="send" disabled>Send offer letters</button>

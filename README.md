@@ -28,6 +28,10 @@ Double-clicking the app starts the server and opens the browser. It keeps runnin
 - A **Gmail App Password** for the sending account (Google Account → Security → 2-Step
   Verification → App passwords). A normal password will not work.
 
+  Host and port are detected for `@gmail.com`, `@outlook.com`, `@hotmail.com`, `@live.com` and
+  `@yahoo.com`. An address on your own domain needs them typed in:
+  Google Workspace → `smtp.gmail.com` port `465`; Microsoft 365 → `smtp.office365.com` port `587`.
+
 ## Input file
 
 `.xlsx` or `.csv` with a header row containing an `email` column. The letter is filled from

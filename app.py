@@ -282,7 +282,10 @@ def connect(sender, password, host, port):
     host = host or SMTP_HOSTS.get(domain, ("", 0))[0]
     port = int(port or SMTP_HOSTS.get(domain, ("", 465))[1])
     if not host:
-        raise ValueError("Unknown mail provider — enter the SMTP host and port.")
+        raise ValueError(
+            "Unknown mail provider for this address — fill in the SMTP host and port. "
+            "Google Workspace (your own domain): smtp.gmail.com, port 465. "
+            "Microsoft 365: smtp.office365.com, port 587.")
     if port == 465:
         s = smtplib.SMTP_SSL(host, port, timeout=30)
     else:
