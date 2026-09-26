@@ -153,6 +153,9 @@ def fill_offer_letter(row, fixed):
 
 
 _convert = threading.Lock()
+# our own LibreOffice profile: a copy the user has open would otherwise hold the default one,
+# and every conversion would exit without writing a PDF
+_profile = "file://" + tempfile.mkdtemp(prefix="offer-sender-libreoffice-")
 
 
 def docx_to_pdf(data):
@@ -164,7 +167,8 @@ def docx_to_pdf(data):
         with open(src, "wb") as f:
             f.write(data)
         with _convert:  # ponytail: one at a time — soffice shares a user profile and trips over itself
-            subprocess.run([SOFFICE, "--headless", "--convert-to", "pdf", "--outdir", tmp, src],
+            subprocess.run([SOFFICE, f"-env:UserInstallation={_profile}",
+                            "--headless", "--convert-to", "pdf", "--outdir", tmp, src],
                            check=True, capture_output=True, timeout=120)
         pdf = os.path.join(tmp, "letter.pdf")
         if not os.path.exists(pdf):
@@ -277,7 +281,13 @@ def build_message(row, fixed, subject, body, sender):
     return msg
 
 
+APP_PASSWORD = re.compile(r"^[a-z]{4}( [a-z]{4}){3}$")
+
+
 def connect(sender, password, host, port):
+    # Google shows app passwords as "abcd efgh ijkl mnop"; the spaces are display only
+    if APP_PASSWORD.match(password):
+        password = password.replace(" ", "")
     domain = sender.rsplit("@", 1)[-1].lower()
     host = host or SMTP_HOSTS.get(domain, ("", 0))[0]
     port = int(port or SMTP_HOSTS.get(domain, ("", 465))[1])
@@ -286,12 +296,21 @@ def connect(sender, password, host, port):
             "Unknown mail provider for this address — fill in the SMTP host and port. "
             "Google Workspace (your own domain): smtp.gmail.com, port 465. "
             "Microsoft 365: smtp.office365.com, port 587.")
-    if port == 465:
-        s = smtplib.SMTP_SSL(host, port, timeout=30)
-    else:
-        s = smtplib.SMTP(host, port, timeout=30)
-        s.starttls()
-    s.login(sender, password)
+    try:
+        if port == 465:
+            s = smtplib.SMTP_SSL(host, port, timeout=15)
+        else:
+            s = smtplib.SMTP(host, port, timeout=15)
+            s.starttls()
+    except OSError as e:      # name the address that failed — "timed out" alone says nothing
+        raise ValueError(f"Could not reach {host} on port {port} — {e}. "
+                         f"Check the host and port; Google Workspace uses smtp.gmail.com port 465.")
+    try:
+        s.login(sender, password)
+    except smtplib.SMTPAuthenticationError as e:
+        s.close()
+        detail = " ".join(e.smtp_error.decode(errors="replace").split())
+        raise ValueError(f"{host} rejected the sign-in for {sender} — {detail}")
     return s
 
 
@@ -321,6 +340,18 @@ def upload():
     cached_pdf.cache_clear()
     return jsonify(headers=HEADERS, rows=ROWS,
                    invalid=[i for i, r in enumerate(ROWS) if not EMAIL_RE.match(r.get("email", ""))])
+
+
+@app.post("/test-smtp")
+def test_smtp():
+    """Sign in and hang up — proves the settings work without spending a candidate on it."""
+    p = request.get_json(force=True)
+    try:
+        connect((p.get("sender") or "").strip(), p.get("password") or "",
+                p.get("host"), p.get("port")).quit()
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+    return jsonify(ok=True)
 
 
 @app.post("/quit")

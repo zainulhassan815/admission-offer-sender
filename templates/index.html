@@ -155,6 +155,7 @@ Sharif College of Engineering and Technology</textarea>
     <div class="row">
       <button type="button" class="primary" id="send" disabled>Send offer letters</button>
       <button type="button" id="dry" disabled>Dry run</button>
+      <button type="button" id="test">Test connection</button>
       <span class="note">Dry run builds every letter and email without sending anything.</span>
     </div>
     <div class="bar hide" id="barWrap"><i class="ok" id="barOk"></i><i class="err" id="barErr"></i></div>
@@ -270,6 +271,21 @@ async function openPreview(anchor) {
 }
 
 /* ---------- send ---------- */
+$('test').onclick = async () => {
+  $('test').disabled = true;
+  $('result').innerHTML = '<div class="callout info">Signing in…</div>';
+  const r = await fetch('/test-smtp', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sender: $('sender').value.trim(), password: $('password').value,
+                           host: $('host').value.trim(), port: $('port').value.trim() }),
+  });
+  const d = await r.json();
+  $('result').innerHTML = r.ok
+    ? '<div class="callout ok">Signed in successfully — these settings will work.</div>'
+    : '<div class="callout err">' + esc(d.error) + '</div>';
+  $('test').disabled = false;
+};
+
 $('send').onclick = () => run(false);
 $('dry').onclick = () => run(true);
 

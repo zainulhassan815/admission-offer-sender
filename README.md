@@ -24,7 +24,8 @@ Double-clicking the app starts the server and opens the browser. It keeps runnin
 ## Requirements on the machine that runs it
 
 - **LibreOffice** — used to convert each filled letter to PDF. Without it the app refuses to send
-  and says so. Nothing else needs installing; the `.app` carries its own Python.
+  and says so. Nothing else needs installing; the `.app` carries its own Python. It runs against
+  its own LibreOffice profile, so you can have LibreOffice open at the same time.
 - A **Gmail App Password** for the sending account (Google Account → Security → 2-Step
   Verification → App passwords). A normal password will not work.
 
