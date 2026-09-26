@@ -12,6 +12,8 @@
   .filebtn { display: inline-block; padding: 12px 24px; background: var(--ink); color: #fff; font-weight: 600; border-radius: var(--r-sm); cursor: pointer; }
   .filebtn:hover { background: #2f2f2c; }
 
+  input[readonly] { background: var(--soft); color: var(--muted); cursor: not-allowed; }
+
   .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
   .toolbar input[type=text] { width: 280px; }
 
@@ -139,18 +141,23 @@ Sharif College of Engineering and Technology</textarea>
     <div class="grid" style="margin-bottom:15px">
       <div><label for="sender">Sender email</label><input type="email" id="sender" autocomplete="username" placeholder="admissions@example.com"></div>
       <div><label for="password">App password</label><input type="password" id="password" autocomplete="current-password"></div>
-      <div><label for="host">SMTP host <span class="hint">— optional</span></label><input type="text" id="host" placeholder="auto · smtp.gmail.com"></div>
-      <div><label for="port">Port <span class="hint">— optional</span></label><input type="text" id="port" placeholder="auto · 465"></div>
+      <div><label for="provider">Mail provider</label>
+        <select id="provider">
+          <option value="smtp.gmail.com:465">Gmail / Google Workspace</option>
+          <option value="smtp.office365.com:587">Outlook / Microsoft 365</option>
+          <option value="smtp.mail.yahoo.com:465">Yahoo Mail</option>
+          <option value="">Other — type it in</option>
+        </select></div>
+      <div><label for="host">SMTP host</label><input type="text" id="host"></div>
+      <div><label for="port">Port</label><input type="text" id="port"></div>
     </div>
     <div class="callout warn" style="margin-bottom:14px">
       Gmail requires an <b>App Password</b> — Google Account → Security → 2-Step Verification → App passwords.
       Your normal password will not work. It is used for this batch only and never stored.
     </div>
     <div class="callout info" style="margin-bottom:20px">
-      Host and port are filled in automatically for <b>@gmail.com</b>, <b>@outlook.com</b>, <b>@hotmail.com</b>,
-      <b>@live.com</b> and <b>@yahoo.com</b>. For an address on your own domain, enter them yourself:<br>
-      <b>Google Workspace</b> — smtp.gmail.com, port 465 &nbsp;·&nbsp;
-      <b>Microsoft 365</b> — smtp.office365.com, port 587
+      An address on your own domain (like <b>@sharif.edu.pk</b>) still uses its provider's server —
+      pick <b>Gmail / Google Workspace</b> and the host and port fill themselves in.
     </div>
     <div class="row">
       <button type="button" class="primary" id="send" disabled>Send offer letters</button>
@@ -271,6 +278,14 @@ async function openPreview(anchor) {
 }
 
 /* ---------- send ---------- */
+const applyProvider = () => {
+  const v = $('provider').value;
+  if (v) { const [h, p] = v.split(':'); $('host').value = h; $('port').value = p; }
+  $('host').readOnly = $('port').readOnly = !!v;   // no more mistyped ports
+};
+$('provider').onchange = applyProvider;
+applyProvider();
+
 $('test').onclick = async () => {
   $('test').disabled = true;
   $('result').innerHTML = '<div class="callout info">Signing in…</div>';
